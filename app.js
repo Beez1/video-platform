@@ -1,41 +1,36 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const path = require("path");
 const cors = require("cors");
-const fs = require("fs");
 
 // Load environment variables
-dotenv.config();  // Initialize Express
+dotenv.config();
 
-// Create an Express app
+// Initialize Express app
 const app = express();
-app.use(express.json());  // Middleware for JSON parsing
+app.use(express.json());
 app.use(cors());
-// Connect to MongoDB
-mongoose
-  .connect(process.env.DATABASE_URL)
-  .then(() => console.log("MongoDB Connected"))   // MongoDB Connected
-  .catch((err) => console.error("MongoDB Connection Error:", err));  // MongoDB Connection Error
 
-// Sample routes (replace with actual routes later)
-app.get("/", (req, res) => {
-  res.send("Welcome to the Video Platform API!");
+const cloudinary = require("cloudinary").v2;
+
+cloudinary.config({
+  cloud_name: "dozfgdehv",
+  api_secret: "W8G30odRvqZ2YDo9pqaXJ3dHcE0",
+  api_key: "387542228515311",
 });
 
-// Serve video files
+// Connect to MongoDB
+mongoose
+  .connect(process.env.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.error("MongoDB Connection Error:", err));
 
-
-// Load your routes
+// Routes
 const authRoutes = require("./routes/auth");
-const videoRoutes = require("./routes/video");  // Video Routes
-app.use("/video", videoRoutes);
-
-
+const videoRoutes = require("./routes/video");
 app.use("/auth", authRoutes);
+app.use("/video", videoRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

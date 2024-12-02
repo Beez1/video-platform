@@ -1,80 +1,52 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const User = require("../models/user");
+const User = require("../models/User");
+
 const router = express.Router();
 
-router.post("/signup", async (req, res) => {
-  const { username, password, confirmPassword } = req.body;
-  if (password !== confirmPassword) {
-    return res.status(400).json({ message: "Passwords do not match" });
-  }
-
+// Register
+router.post("/register", async (req, res) => {
   try {
-    const user = new User({ username, password });
+    const { username, password } = req.body;
+
+    // Check if username is already taken
+    const existingUser = await User.findOne({ username });
+    if (existingUser) return res.status(400).json({ message: "Username already taken" });
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create and save the user
+    const user = new User({ username, password: hashedPassword });
     await user.save();
-    res.status(201).json({ message: "User created successfully" });
+
+    res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error creating user", error });
+    res.status(500).json({ message: error.message });
   }
 });
 
+// Login
 router.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-
   try {
+    const { username, password } = req.body;
+
+    // Find user by username
     const user = await User.findOne({ username });
-    if (!user || !(await user.isValidPassword(password))) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ token });
+    // Compare passwords
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) return res.status(400).json({ message: "Invalid credentials" });
+
+    // Generate a token
+    const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    res.status(200).json({ token });
   } catch (error) {
-    res.status(500).json({ message: "Login failed", error });
+    res.status(500).json({ message: error.message });
   }
-});
-
-router.get("/user-details/:userId", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const videoCount = await Video.countDocuments({ uploadedBy: userId });
-
-    res.json({
-      username: user.username,
-      createdAt: user.createdAt,
-      videosUploaded: videoCount,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching user details", error });
-  }
-});
-
-router.get("/user/:username", async (req, res) => {
-  const { username } = req.params;
-
-  try {
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(404).json({ message: `User ${username} not found` });
-    }
-
-    res.json({
-      username: user.username,
-      createdAt: user.createdAt,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching user details", error });
-  }
-});
-
-router.post("/logout", (req, res) => {
-  res.json({ message: "Logged out successfully" });
 });
 
 module.exports = router;

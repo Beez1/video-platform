@@ -4,215 +4,123 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Platform</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f9f9f9;
-      color: #333;
+  <script>
+    let authToken = ''; // Store the JWT token after login
+
+    // Register a new user
+    async function registerUser(event) {
+      event.preventDefault();
+      const username = document.getElementById('register-username').value;
+      const password = document.getElementById('register-password').value;
+
+      const response = await fetch('http://localhost:9000/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+      alert(data.message || 'Registered successfully');
     }
-    form {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+
+    // Login user
+    async function loginUser(event) {
+      event.preventDefault();
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+
+      const response = await fetch('http://localhost:9000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        authToken = data.token;
+        alert('Login successful!');
+      } else {
+        alert(data.message || 'Login failed');
+      }
     }
-    label {
-      display: block;
-      margin-top: 10px;
+
+    // Upload a video
+    async function uploadVideo(event) {
+      event.preventDefault();
+      const title = document.getElementById('video-title').value;
+      const videoFile = document.getElementById('video-file').files[0];
+
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('video', videoFile);
+
+      const response = await fetch('http://localhost:9000/video/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      alert(data.message || 'Video uploaded successfully');
     }
-    input, button {
-      margin-top: 5px;
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid #ddd;
-      width: 100%;
-      box-sizing: border-box;
+
+    // Fetch uploaded videos
+    async function fetchVideos() {
+      const response = await fetch('http://localhost:9000/video', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      const videos = await response.json();
+      const videoList = document.getElementById('video-list');
+      videoList.innerHTML = '';
+
+      videos.forEach(video => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `
+          <strong>${video.title}</strong>
+          <br>
+          <a href="${video.url}" target="_blank">View Video</a>
+        `;
+        videoList.appendChild(listItem);
+      });
     }
-    button {
-      background: #007BFF;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    .hidden {
-      display: none;
-    }
-    .videos {
-      margin-top: 20px;
-    }
-    .video-item {
-      margin-bottom: 15px;
-      padding: 10px;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
-    }
-    .video-item strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-    #registerResponse, #loginResponse, #uploadResponse {
-      color: red;
-      font-size: 0.9em;
-    }
-  </style>
+  </script>
 </head>
 <body>
   <h1>Video Platform</h1>
 
-  <!-- Registration Form -->
-  <form id="registerForm">
+  <section>
     <h2>Register</h2>
-    <label for="registerUsername">Username:</label>
-    <input type="text" id="registerUsername" name="username" required>
-    <label for="registerPassword">Password:</label>
-    <input type="password" id="registerPassword" name="password" required>
-    <label for="registerConfirmPassword">Confirm Password:</label>
-    <input type="password" id="registerConfirmPassword" name="confirmPassword" required>
-    <button type="submit">Register</button>
-    <p id="registerResponse"></p>
-  </form>
+    <form onsubmit="registerUser(event)">
+      <input type="text" id="register-username" placeholder="Username" required>
+      <input type="password" id="register-password" placeholder="Password" required>
+      <button type="submit">Register</button>
+    </form>
+  </section>
 
-  <!-- Login Form -->
-  <form id="loginForm">
+  <section>
     <h2>Login</h2>
-    <label for="loginUsername">Username:</label>
-    <input type="text" id="loginUsername" name="username" required>
-    <label for="loginPassword">Password:</label>
-    <input type="password" id="loginPassword" name="password" required>
-    <button type="submit">Login</button>
-    <p id="loginResponse"></p>
-  </form>
+    <form onsubmit="loginUser(event)">
+      <input type="text" id="login-username" placeholder="Username" required>
+      <input type="password" id="login-password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+  </section>
 
-  <!-- Video Upload Form -->
-  <form id="uploadForm" class="hidden">
+  <section>
     <h2>Upload Video</h2>
-    <label for="videoTitle">Title:</label>
-    <input type="text" id="videoTitle" name="title" required>
-    <label for="videoGenre">Genre:</label>
-    <input type="text" id="videoGenre" name="genre" required>
-    <label for="videoFile">Video File:</label>
-    <input type="file" id="videoFile" name="video" accept="video/*" required>
-    <button type="submit">Upload Video</button>
-    <p id="uploadResponse"></p>
-  </form>
+    <form onsubmit="uploadVideo(event)">
+      <input type="text" id="video-title" placeholder="Video Title" required>
+      <input type="file" id="video-file" accept="video/*" required>
+      <button type="submit">Upload</button>
+    </form>
+  </section>
 
-  <!-- Video List -->
-  <div class="videos hidden">
-    <h2>Uploaded Videos</h2>
-    <button id="fetchVideosButton">Fetch Videos</button>
-    <div id="videosList"></div>
-  </div>
-
-  <script>
-    let token = null;
-
-    // Register Form Submission
-    document.getElementById('registerForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('registerUsername').value;
-      const password = document.getElementById('registerPassword').value;
-      const confirmPassword = document.getElementById('registerConfirmPassword').value;
-
-      try {
-        const response = await fetch('http://localhost:9000/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, confirmPassword }),
-        });
-
-        const result = await response.json();
-        document.getElementById('registerResponse').innerText = response.ok
-          ? 'Registration successful! You can now log in.'
-          : result.message || 'Registration failed.';
-      } catch (error) {
-        console.error('Registration Error:', error);
-        document.getElementById('registerResponse').innerText = 'An error occurred during registration.';
-      }
-    });
-
-    // Login Form Submission
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('loginUsername').value;
-      const password = document.getElementById('loginPassword').value;
-
-      try {
-        const response = await fetch('http://localhost:9000/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
-        });
-
-        const result = await response.json();
-        if (response.ok) {
-          token = result.token;
-          document.getElementById('loginResponse').innerText = 'Login successful!';
-          document.getElementById('uploadForm').classList.remove('hidden');
-          document.querySelector('.videos').classList.remove('hidden');
-        } else {
-          document.getElementById('loginResponse').innerText = result.message || 'Login failed.';
-        }
-      } catch (error) {
-        console.error('Login Error:', error);
-        document.getElementById('loginResponse').innerText = 'An error occurred during login.';
-      }
-    });
-
-    // Video Upload Form Submission
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData();
-      formData.append('title', document.getElementById('videoTitle').value);
-      formData.append('genre', document.getElementById('videoGenre').value);
-      formData.append('video', document.getElementById('videoFile').files[0]);
-
-      try {
-        const response = await fetch('http://localhost:9000/videos/upload', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData,
-        });
-
-        const result = await response.json();
-        document.getElementById('uploadResponse').innerText = response.ok
-          ? 'Video uploaded successfully!'
-          : result.message || 'Video upload failed.';
-      } catch (error) {
-        console.error('Upload Error:', error);
-        document.getElementById('uploadResponse').innerText = 'An error occurred during upload.';
-      }
-    });
-
-    // Fetch Videos
-    fetch("http://localhost:9000/api/videos")
-  .then(response => response.json())
-  .then(videos => {
-    videos.forEach(video => {
-      const videoElement = document.createElement("video");
-      videoElement.src = video.videoData;
-      videoElement.controls = true;
-
-      const title = document.createElement("h3");
-      title.textContent = video.title;
-
-      const genre = document.createElement("p");
-      genre.textContent = `Genre: ${video.genre}`;
-
-      document.body.appendChild(title);
-      document.body.appendChild(genre);
-      document.body.appendChild(videoElement);
-    });
-  })
-  .catch(error => console.error("Error fetching videos:", error));
-
-  </script>
+  <section>
+    <h2>Your Videos</h2>
+    <button onclick="fetchVideos()">Fetch Videos</button>
+    <ul id="video-list"></ul>
+  </section>
 </body>
 </html>

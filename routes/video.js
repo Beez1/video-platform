@@ -1,70 +1,66 @@
 const express = require("express");
-const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
 const Video = require("../models/video");
+const authenticate = require("../middleware/auth");
+const multer = require("multer");
+
+cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL });
 
 const router = express.Router();
-
-// Multer Configuration: Store files in memory for Base64 conversion
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // Limit to 10MB
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Upload Video
-router.post("/upload", upload.single("video"), async (req, res) => {
+router.post("/upload", authenticate, upload.single("video"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: "No video file uploaded." });
+      return res.status(400).json({ message: "No video file provided" });
     }
 
-    const { title, genre } = req.body;
+    const { title } = req.body;
 
-    if (!title || !genre) {
-      return res.status(400).json({ message: "Title and genre are required." });
-    }
+    cloudinary.uploader.upload_stream(
+      { resource_type: "video", folder: "user_videos", timeout: 60000 },
+      async (error, result) => {
+        if (error) {
+          console.error("Cloudinary Upload Error:", error.message);
+          return res.status(500).json({ message: error.message });
+        }
 
-    // Convert video to Base64
-    const videoBase64 = req.file.buffer.toString("base64");
+        try {
+          const video = new Video({
+            title,
+            url: result.secure_url,
+            public_id: result.public_id,
+            uploaded_by: req.user.username,
+          });
 
-    // Save metadata and Base64 string to MongoDB
-    const video = new Video({
-      title,
-      genre,
-      mimetype: req.file.mimetype,
-      videoBase64,
-    });
-
-    await video.save();
-
-    res.status(201).json({
-      message: "Video uploaded successfully",
-      videoId: video._id,
-    });
+          await video.save();
+          return res.status(201).json({ message: "Video uploaded successfully", video });
+        } catch (dbError) {
+          console.error("MongoDB Save Error:", dbError.message);
+          return res.status(500).json({ message: dbError.message });
+        }
+      }
+    ).end(req.file.buffer); // Use the file buffer
   } catch (error) {
-    console.error("Error during video upload:", error);
-    res.status(500).json({
-      message: "An error occurred during video upload.",
-      error: error.message,
-    });
+    console.error("Server Error:", error.message);
+    res.status(500).json({ message: "An unexpected error occurred" });
   }
 });
 
-// Fetch All Videos
-router.get("/", async (req, res) => {
+// Fetch User Videos
+router.get("/", authenticate, async (req, res) => {
   try {
-    const videos = await Video.find();
-    const formattedVideos = videos.map(video => ({
-      _id: video._id,
-      title: video.title,
-      genre: video.genre,
-      videoData: `data:${video.mimetype};base64,${video.videoBase64}`
-    }));
-
-    res.json(formattedVideos);
+    const videos = await Video.find({ uploaded_by: req.user.username });
+    if (!videos.length) {
+      return res.status(404).json({ message: "No videos found for this user" });
+    }
+    res.status(200).json(videos); // Return videos as an array
   } catch (error) {
-    console.error("Error fetching videos:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error fetching videos:", error.message);
+    res.status(500).json({ message: "An unexpected error occurred" });
   }
 });
+
 
 module.exports = router;

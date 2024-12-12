@@ -61,7 +61,11 @@
       });
 
       const data = await response.json();
-      alert(data.message || 'Video uploaded successfully');
+      if (response.ok) {
+        alert(data.message || 'Video uploaded successfully');
+      } else {
+        alert(data.message || 'Failed to upload video');
+      }
     }
 
     // Fetch uploaded videos
@@ -81,9 +85,32 @@
           <strong>${video.title}</strong>
           <br>
           <a href="${video.url}" target="_blank">View Video</a>
+          <br>
+          <button onclick="deleteVideo('${video._id}')">Delete</button>
         `;
         videoList.appendChild(listItem);
       });
+    }
+
+    // Delete a video
+    async function deleteVideo(videoId) {
+      if (!confirm('Are you sure you want to delete this video?')) {
+        return;
+      }
+
+      const response = await fetch(`https://video-platform-8lwk.onrender.com/video/${videoId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message || 'Video deleted successfully');
+        fetchVideos(); // Refresh the video list
+      } else {
+        alert(data.message || 'Failed to delete video');
+      }
     }
 
     // Update Username

@@ -1,4 +1,4 @@
-# Project Title
+# VIDEO SERVER
 
 This project is a Node.js-based server application that provides APIs for authentication and video management. It uses MongoDB as the database for storing application data and integrates with Cloudinary for video and image processing. The application is built using the Express framework, ensuring modularity and flexibility for future enhancements.
 
